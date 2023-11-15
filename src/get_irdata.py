@@ -56,7 +56,7 @@ for i, row in meta_df.iterrows():
     }
     response = requests.get(url, params=payload)
 
-    export_folder = data_path / row["edinetCode"] / row["docTypeCode"]
+    export_folder = data_path / "ir" / row["edinetCode"] / row["docTypeCode"]
     os.makedirs(export_folder, exist_ok=True)
 
     with TmpFolder("./tmp") as tmp:
