@@ -6,22 +6,29 @@ import os
 import time
 from pathlib import Path
 import shutil
+import json
 
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
 data_path = Path("../data")
-meta_path = data_path / "metadata.csv"
-company_path = data_path / "company_list.csv"
+meta_path = data_path / "metadata"
 
-include_docTypeCode = ["120", "140"]
+with open(data_path / "irdata_param.json", encoding="utf-8") as f:
+    param = json.load(f)
+
+company = param["company"]
+doctype = param["docType"]
 # %%
-company_list = pd.read_csv(company_path, dtype=str)
-raw_meta_df = pd.read_csv(meta_path, dtype=str)
+csv_list = []
+for csv_path in meta_path.glob("*.csv"):
+    csv_list.append(pd.read_csv(csv_path, dtype=str))
+
+raw_meta_df = pd.concat(csv_list)
 meta_df = raw_meta_df[
-    raw_meta_df["edinetCode"].isin(company_list["edinetコード"])
-    & raw_meta_df["docTypeCode"].isin(include_docTypeCode)
+    raw_meta_df["edinetCode"].isin(company.keys())
+    & raw_meta_df["docTypeCode"].isin(doctype.keys())
 ]
 
 
@@ -56,14 +63,16 @@ for i, row in meta_df.iterrows():
     }
     response = requests.get(url, params=payload)
 
-    export_folder = data_path / "ir" / row["edinetCode"] / row["docTypeCode"]
+    export_folder = (
+        data_path / "ir" / company[row["edinetCode"]] / doctype[row["docTypeCode"]]
+    )
     os.makedirs(export_folder, exist_ok=True)
 
     with TmpFolder("./tmp") as tmp:
         unzip(tmp.path, response.content)
 
         files = tmp.path.glob("XBRL_TO_CSV/*")
-        file_name = f'{row["edinetCode"]}_{row["periodEnd"]}.csv'
+        file_name = f'{company[row["edinetCode"]]}_{row["periodEnd"]}.csv'
         for file in files:
             if "jpaud" not in file.name:
                 shutil.move(file, export_folder / file_name)
